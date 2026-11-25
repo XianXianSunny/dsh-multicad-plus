@@ -8,12 +8,12 @@
   "author": "a494359163-byte",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/dsh-multicad-plus.git"
+    "url": "git+https://github.com/XianXianSunny/dsh-multicad-plus.git"
   },
   "bugs": {
-    "url": "https://github.com/OWNER/dsh-multicad-plus/issues"
+    "url": "https://github.com/XianXianSunny/dsh-multicad-plus/issues"
   },
-  "homepage": "https://github.com/OWNER/dsh-multicad-plus#readme",
+  "homepage": "https://github.com/XianXianSunny/dsh-multicad-plus#readme",
   "keywords": [
     "dsh-plugin",
     "deepseek-harness",

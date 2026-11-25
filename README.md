@@ -59,7 +59,7 @@
 dsh plugin add C:\path\to\dsh-multicad-plus
 
 # 或者从仓库安装
-dsh plugin add github:OWNER/dsh-multicad-plus
+dsh plugin add github:XianXianSunny/dsh-multicad-plus
 ```
 
 装完**完全退出 DSH 再打开**，工具会以 `mcp__multicad__*` 出现。首次启动会在 `%LOCALAPPDATA%\dsh-multicad-plus\venv` 建私有 venv 装依赖（需联网），之后秒开；venv 坏了删掉即可自愈。
