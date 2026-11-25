@@ -1,0 +1,26 @@
+dsh-multicad (community fork)
+
+Copyright (c) 2026 the dsh-multicad fork contributors
+Copyright (c) 2026 a494359163-byte (upstream dsh-multicad packaging, DSH bundle
+                              integration, staged launcher, self-healing venv)
+Copyright (c) 2026 AnCode666, SVF-GFA (multiCAD-mcp server under python/src)
+
+This product is a fork of https://github.com/a494359163-byte/dsh-multicad,
+which bundles multiCAD-mcp (https://github.com/AnCode666/multiCAD-mcp).
+
+Both upstream projects are licensed under the Apache License, Version 2.0.
+A copy of that license is provided in LICENSE. The python/src tree retains the
+original multiCAD-mcp sources; modifications made by this fork are documented in
+CHANGELOG.md and are released under the same Apache-2.0 terms.
+
+Modifications in this fork
+--------------------------
+- python/src/adapters/mixins/geometry_mixin.py  (new)
+- python/src/mcp_tools/tools/geometry.py        (new)
+- python/src/adapters/mixins/view_mixin.py      (window discovery, export_view)
+- python/src/adapters/mixins/drawing_mixin.py   (rectangle closing point)
+- python/src/mcp_tools/constants.py             (localised window matching)
+- python/src/core/models.py                     (arc angle normalisation)
+- python/src/server.py, mcp_tools/tools/__init__.py, adapters/autoconfig
+  and mixins/__init__.py                        (tool registration wiring)
+- tests/test_geometry.py                        (new)

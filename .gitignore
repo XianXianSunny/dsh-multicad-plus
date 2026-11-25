@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Logs and local state
+logs/
+*.log
+
+# Node / DSH
+node_modules/
+package-lock.json
+
+# Export artefacts produced while testing
+*.png
+*.pdf
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
