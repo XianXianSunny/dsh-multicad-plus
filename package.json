@@ -6,6 +6,9 @@
   "main": "lib/index.js",
   "license": "Apache-2.0",
   "author": "a494359163-byte",
+  "contributors": [
+    "XianXianSunny (fork maintainer: geometry toolset, window discovery, export fixes)"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/XianXianSunny/dsh-multicad-plus.git"
