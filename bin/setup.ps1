@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$state = Join-Path $env:LOCALAPPDATA 'dsh-multicad'
+$state = Join-Path $env:LOCALAPPDATA 'dsh-multicad-plus'
 $venv = Join-Path $state 'venv'
 $root = Split-Path -Parent $PSScriptRoot
 $requirements = Join-Path $root 'python\requirements.txt'

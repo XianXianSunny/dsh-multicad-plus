@@ -1,4 +1,6 @@
-# dsh-multicad (community fork)
+# dsh-multicad-plus
+
+> 官方上游是 [`dsh-multicad`](https://github.com/a494359163-byte/dsh-multicad)；本 fork 改名 `dsh-multicad-plus`，**不要和上游同时安装**（两者都注册 `multicad` MCP 服务）。
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：把 **AutoCAD / 中望 ZWCAD / 浩辰 GstarCAD / BricsCAD** 接进来，让 agent 能直接读图、画图、改几何、存盘。
 
@@ -54,13 +56,13 @@
 
 ```powershell
 # 从本地目录安装（推荐，改动立刻可见）
-dsh plugin add C:\path\to\dsh-multicad
+dsh plugin add C:\path\to\dsh-multicad-plus
 
 # 或者从仓库安装
-dsh plugin add github:OWNER/dsh-multicad
+dsh plugin add github:OWNER/dsh-multicad-plus
 ```
 
-装完**完全退出 DSH 再打开**，工具会以 `mcp__multicad__*` 出现。首次启动会在 `%LOCALAPPDATA%\dsh-multicad\venv` 建私有 venv 装依赖（需联网），之后秒开；venv 坏了删掉即可自愈。
+装完**完全退出 DSH 再打开**，工具会以 `mcp__multicad__*` 出现。首次启动会在 `%LOCALAPPDATA%\dsh-multicad-plus\venv` 建私有 venv 装依赖（需联网），之后秒开；venv 坏了删掉即可自愈。
 
 ## 工具一览
 
@@ -88,7 +90,7 @@ dsh plugin add github:OWNER/dsh-multicad
 ## 开发
 
 ```powershell
-$py = "$env:LOCALAPPDATA\dsh-multicad\venv\Scripts\python.exe"
+$py = "$env:LOCALAPPDATA\dsh-multicad-plus\venv\Scripts\python.exe"
 & $py -m pip install -r python\requirements.txt pytest
 & $py -m pytest tests -q          # 纯几何数学，不需要 CAD
 ```
@@ -96,8 +98,8 @@ $py = "$env:LOCALAPPDATA\dsh-multicad\venv\Scripts\python.exe"
 修改 `python/src` 后同步到运行目录（插件加载时会从包内复制到该目录）：
 
 ```powershell
-Copy-Item python\src\* "$env:LOCALAPPDATA\dsh-multicad\python\src\" -Recurse -Force
-# 然后重启 DSH 或结束 %LOCALAPPDATA%\dsh-multicad 下的 server.py 进程
+Copy-Item python\src\* "$env:LOCALAPPDATA\dsh-multicad-plus\python\src\" -Recurse -Force
+# 然后重启 DSH 或结束 %LOCALAPPDATA%\dsh-multicad-plus 下的 server.py 进程
 ```
 
 ## 许可

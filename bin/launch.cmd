@@ -1,7 +1,7 @@
 @echo off
 setlocal
 set "ROOT=%~dp0.."
-set "STATE=%LOCALAPPDATA%\dsh-multicad"
+set "STATE=%LOCALAPPDATA%\dsh-multicad-plus"
 set "VENV=%STATE%\venv"
 
 if not exist "%STATE%" mkdir "%STATE%" >nul 2>&1

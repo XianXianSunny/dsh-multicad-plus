@@ -1,5 +1,5 @@
 {
-  "name": "dsh-multicad",
+  "name": "dsh-multicad-plus",
   "version": "0.3.0",
   "description": "AutoCAD / ZWCAD / GstarCAD / BricsCAD connector for DeepSeek Harness via MCP: geometry editing (join, fillet, chamfer, offset, array, explode, mirror), localised window discovery and a self-healing Python environment.",
   "type": "module",
@@ -8,12 +8,12 @@
   "author": "a494359163-byte",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/a494359163-byte/dsh-multicad.git"
+    "url": "git+https://github.com/OWNER/dsh-multicad-plus.git"
   },
   "bugs": {
-    "url": "https://github.com/a494359163-byte/dsh-multicad/issues"
+    "url": "https://github.com/OWNER/dsh-multicad-plus/issues"
   },
-  "homepage": "https://github.com/a494359163-byte/dsh-multicad#readme",
+  "homepage": "https://github.com/OWNER/dsh-multicad-plus#readme",
   "keywords": [
     "dsh-plugin",
     "deepseek-harness",

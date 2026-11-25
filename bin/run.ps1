@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$state = Join-Path $env:LOCALAPPDATA 'dsh-multicad'
+$state = Join-Path $env:LOCALAPPDATA 'dsh-multicad-plus'
 $venvPython = Join-Path $state 'venv\Scripts\python.exe'
 $server = Join-Path $state 'python\src\server.py'
 
