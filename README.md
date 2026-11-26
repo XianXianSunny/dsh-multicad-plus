@@ -1,5 +1,9 @@
 # dsh-multicad-plus
 
+[![release](https://img.shields.io/github/v/release/XianXianSunny/dsh-multicad-plus?label=release)](https://github.com/XianXianSunny/dsh-multicad-plus/releases)
+[![license](https://img.shields.io/github/license/XianXianSunny/dsh-multicad-plus)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue)](python/requirements.txt)
+
 > 官方上游是 [`dsh-multicad`](https://github.com/a494359163-byte/dsh-multicad)；本 fork 改名 `dsh-multicad-plus`，**不要和上游同时安装**（两者都注册 `multicad` MCP 服务）。
 
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：把 **AutoCAD / 中望 ZWCAD / 浩辰 GstarCAD / BricsCAD** 接进来，让 agent 能直接读图、画图、改几何、存盘。
@@ -34,6 +38,47 @@
 
 几何全部用 Python 算完再通过 `AddLightWeightPolyline` / `SetBulge` 写回，不模拟键盘、不依赖 CAD 命令别名。
 
+## v0.4.0：按像素描图 + 图纸窗口治理
+
+**`trace_image`：照着图描轮廓，而不是照着图猜坐标**
+
+```text
+# 1) 先看结果，不碰 CAD
+trace_image(image_path="C:/refs/logo.png", mode="preview", scale=0.5)
+
+# 2) 直接画成闭合多段线（图层缺失会自动创建）
+trace_image(image_path="C:/refs/logo.png", mode="draw", scale=0.5, layer="LOGO")
+```
+
+管线：阈值（默认 Otsu）→ 走真实像素边界（外轮廓和孔都会走出来）→ RDP 简化 →
+吸附水平/垂直/45°（按角度判定，长边被阶梯污染也不会判错）→ 回栅验算 `iou`。
+
+- `mode="preview"` 返回多边形、每条面积、整体 bbox、`fit.iou`，不动 CAD
+- `mode="draw"` 创建闭合多段线，返回句柄
+- `anchor="bbox"`（默认）把描出的图形左下角对到原点；`anchor="image"` 保留图片留白
+- `scale` 是"每像素多少图形单位"，`origin_x/origin_y` 是图片左下角落点
+- 纯 Pillow 实现（私有 venv 里没有 numpy），1063² 图约 0.2 s
+
+实测：192×192 的 ZBHD 标志描出 2 条闭合多段线，bbox 正好 64 × 35.5 mm（`scale=0.5`），
+`iou = 0.945`；1063² 字标描出 6 条（含 D 的方孔），`iou = 0.978`。
+
+**交付完不留空窗口**
+
+| 行为 | 现在 |
+|---|---|
+| `manage_files new` | 复用"未保存且无图元"的图纸，连点两次不会多开窗口 |
+| `manage_files save\|路径.dwg` | 存盘成功后自动关掉残留的空图纸 |
+| `manage_files close` | 关掉最后一张不再"补一张保持连接" |
+| `manage_files tidy` | 显式清理所有空图纸 |
+| `manage_files list` | 返回每张图的路径/图元数/空图标记/活动标记，有空图时直接给提示 |
+
+**其他 0.4.0 修复**
+
+- `save` 目标文件已被本会话另一张图占用时，明确报冲突，而不是笼统的 `Failed to save drawing`
+- 请求的图层不存在时图元会静默落到 0 层（CAD 拒绝赋值、异常被吞）→ 缺层先建层
+- 新建文档上 `zoom_extents` 把小图放大到裁切（64 mm 的 logo 铺满窗口）→ 改读 `EXTMIN`/`EXTMAX` 后 `ZOOM Window` 加边距，失败再退回 `ZoomExtents`
+- 4K 截图约 35 MB base64 会把 stdio 服务搞崩 → 编码前限宽 1600 px
+
 ## 实测校验
 
 20×10 试件上，实测值与解析值对得上：
@@ -49,6 +94,8 @@
 - 周长 **237.425** ＝ 4×57 + 4×(π·1.5/2) = 237.4248
 
 再对该多段线做 `offset 3`：面积 4338.617 ＝ A + P·d + πd² = 3598.069 + 712.274 + 28.274，周长 256.274 ＝ P + 2πd，同样精确。
+
+描图管线另有 5 个无 CAD 用例（Otsu、矩形+孔、45° 吸附、坐标映射、亚容差顶点剔除），`pytest tests -q` 共 17 项全绿。
 
 ## 安装
 
@@ -66,22 +113,23 @@ dsh plugin add github:XianXianSunny/dsh-multicad-plus
 
 ## 工具一览
 
-`mcp__multicad__*` 共 8 个：
+`mcp__multicad__*` 共 9 个：
 
 | 工具 | 用途 |
 |---|---|
 | `manage_session` | 连接/断开、状态、缩放、截图、导出视图、撤销重做 |
 | `draw_entities` | 线/圆/弧/矩形/多段线/样条/文字/表格/引线/标注 |
 | `manage_geometry` | **本 fork 新增**：join / fillet / chamfer / offset / array / explode / mirror |
+| `trace_image` | **0.4.0 新增**：把参考图描成闭合多段线（preview / draw） |
 | `manage_entities` | 选择、移动、旋转、缩放、改色改层、复制粘贴、删除 |
 | `manage_layers` | 图层创建、改色、开关 |
 | `manage_blocks` | 块创建、插入、属性读写 |
-| `manage_files` | 新建、保存（DWG/DXF/PDF）、关闭、切换、列表 |
+| `manage_files` | 新建、保存（DWG/DXF/PDF）、关闭、切换、列表、tidy |
 | `export_data` | 导出实体清单 JSON / Excel |
 
 ## 已知限制
 
-- **未保存的图纸会被丢**：如果图纸还是 `Drawing1`（从没存过盘），MCP 服务进程被重启/杀掉时，多数情况下整张图的内容会没掉。已在文件里的图纸不受影响。**动手前先 `manage_files save|路径.dwg`。**
+- **未保存的图纸会被丢**：如果图纸还是 `Drawing1`（从没存过盘），MCP 服务进程被重启/杀掉时，多数情况下整张图的内容会没掉。已在文件里的图纸不受影响。**动手前先 `manage_files save|路径.dwg`。**（0.4.0 起 `save` 会顺手清掉残留空图，空图不再堆积）
 - `manage_session export_view` 用 CAD 自带 `PNGOUT` 平移到图片，窗口被完全遮挡时偶尔会拿到旧帧（本 fork 已加 mtime 校验，会报错而不是静默给旧图）。
 - 服务会常驻一个本地看板 `http://127.0.0.1:8888`（无鉴权，仅本机可达）。占用 8888 端口，可通过 `python/src/config.json` 的 `dashboard.port` 修改。
 - `config.json` 里 `allow_arbitrary_paths: true`，保存时可以写任意绝对路径。
@@ -92,7 +140,7 @@ dsh plugin add github:XianXianSunny/dsh-multicad-plus
 ```powershell
 $py = "$env:LOCALAPPDATA\dsh-multicad-plus\venv\Scripts\python.exe"
 & $py -m pip install -r python\requirements.txt pytest
-& $py -m pytest tests -q          # 纯几何数学，不需要 CAD
+& $py -m pytest tests -q          # 纯几何数学 + 描图管线，不需要 CAD
 ```
 
 修改 `python/src` 后同步到运行目录（插件加载时会从包内复制到该目录）：
