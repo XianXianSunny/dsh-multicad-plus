@@ -102,6 +102,36 @@ export_data(scope="selected", format="json")
 
 You can ask your AI assistant to execute complex tasks that require multiple tools, such as drawing graphs of equations, complex title blocks, or data tables.
 
+### Tracing a picture (fork addition, v0.4.0)
+
+Redrawing a logo or a reference drawing by "looking at the image and typing
+coordinates" is unreliable: proportions drift, holes disappear, diagonals get
+flattened. `trace_image` measures the shape instead:
+
+```text
+# 1) Preview: contours only, nothing is drawn in CAD
+trace_image(image_path="C:/refs/logo.png", mode="preview", scale=0.5, tolerance=1.5)
+
+# 2) Draw: same contours as closed polylines on layer LOGO
+trace_image(image_path="C:/refs/logo.png", mode="draw", scale=0.5, layer="LOGO")
+```
+
+The result reports each polygon's area and the round-trip fit (`iou`), so the
+shape can be checked numerically before it is delivered. `scale` is drawing
+units per pixel, and the image's bottom-left corner lands on `origin_x/origin_y`.
+`anchor="bbox"` (the default) moves the traced content so its own bottom-left
+corner sits on the origin; use `anchor="image"` to keep the picture's margins.
+
+### Drawing windows (fork addition, v0.4.0)
+
+Named deliverables should not leave scratch windows behind:
+
+- `manage_files "new"` reuses an unsaved empty drawing instead of opening
+  another one.
+- `manage_files "save|C:/out/part.dwg"` closes leftover empty drawings.
+- `manage_files "tidy"` closes every unsaved empty drawing on demand, and
+  `manage_files "list"` reports which drawings are blank.
+
 ## Configuration
 
 Edit `src/config.json` to customize:

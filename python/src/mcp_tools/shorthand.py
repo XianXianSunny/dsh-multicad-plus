@@ -484,9 +484,14 @@ FILE_OP_FIELDS: Dict[str, FieldList] = {
         ("filename", False, None),
         ("format", False, "dwg"),
     ],
-    "new": [],
+    "new": [
+        ("reuse_blank", False, True),
+    ],
     "close": [
         ("save_changes", False, False),
+    ],
+    "tidy": [
+        ("keep_current", False, True),
     ],
     "list": [],
     "switch": [
@@ -529,13 +534,15 @@ def parse_file_op_shorthand(line: str) -> Dict[str, Any]:
             spec["format"] = parts[2]
         return autocorrect_spec(spec, "file_op")
 
+    _BOOL_FIELDS = ("save_changes", "reuse_blank", "keep_current")
+
     for i, (field_name, required, default) in enumerate(fields):
         value_index = i + 1
 
         if value_index < len(parts) and parts[value_index]:
             value = parts[value_index]
 
-            if field_name == "save_changes":
+            if field_name in _BOOL_FIELDS:
                 spec[field_name] = _parse_bool(value)
             else:
                 spec[field_name] = value

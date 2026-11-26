@@ -24,6 +24,7 @@ from mcp_tools.tools import (
     register_export_tools,
     register_block_tools,
     register_geometry_tools,
+    register_tracing_tools,
 )
 from web.api import api_app, log_handler
 
@@ -32,8 +33,33 @@ setup_utf8_encoding()
 logger = setup_logging()
 logging.getLogger().addHandler(log_handler)
 
+# Server-level guidance. Hosts surface these instructions to the model before
+# the first tool call, which is where the delivery and tracing workflow belongs:
+# tool descriptions cannot describe a multi-call procedure on their own.
+SERVER_INSTRUCTIONS = """
+multiCAD connector for AutoCAD / ZWCAD / GStarCAD / BricsCAD.
+
+Delivery workflow (one deliverable = one drawing window):
+1. manage_files "new" (reuses an unsaved empty drawing instead of opening
+   another window), draw the geometry, then manage_files "save|<absolute path>".
+   Saving also closes leftover empty scratch drawings.
+2. Before answering, run manage_files "tidy" (or "list") and make sure only the
+   delivered drawings remain open. Close a scratch drawing that still holds
+   geometry with manage_files "close|false" instead of leaving it open.
+3. Never draw into an unnamed "DrawingN" window and leave it behind: the next
+   session inherits it, and the user gets windows nobody asked for.
+
+Tracing raster references (logos, screenshots, scanned sketches):
+1. Prefer trace_image over reading coordinates off the picture. Run it with
+   mode="preview", check count / bbox / fit.iou, then repeat with mode="draw".
+2. Outlines only means closed polylines with no fill and no text entities
+   standing in for shapes.
+3. Verify numerically with export_data (area, length) rather than a screenshot;
+   screenshots only work when the CAD window is in the foreground.
+"""
+
 # Initialize FastMCP server
-mcp = FastMCP(name=__title__)
+mcp = FastMCP(name=__title__, instructions=SERVER_INSTRUCTIONS)
 
 
 def register_all_tools():
@@ -73,6 +99,9 @@ def register_all_tools():
 
     register_geometry_tools(mcp)
     logger.debug("  ✓ Geometry tools registered")
+
+    register_tracing_tools(mcp)
+    logger.debug("  ✓ Tracing tools registered")
 
     logger.info("All MCP tools registered successfully")
 

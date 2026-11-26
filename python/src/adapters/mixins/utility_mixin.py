@@ -352,8 +352,15 @@ class UtilityMixin:
         color: str | int,
         lineweight: int = 0,
     ) -> None:
-        """Apply common properties to an entity."""
+        """Apply common properties to an entity.
+
+        A layer that does not exist yet is created instead of being silently
+        dropped: CAD rejects ``entity.Layer = "missing"``, and the old code
+        swallowed that error, so a requested ``LOGO`` layer quietly produced
+        entities on layer 0.
+        """
         try:
+            self._ensure_layer_exists(layer)
             entity.Layer = layer
             if isinstance(color, str):
                 color = self._get_color_index(color)
@@ -362,6 +369,43 @@ class UtilityMixin:
                 entity.LineWeight = self.validate_lineweight(lineweight)
         except Exception as e:
             logger.warning(f"Failed to apply properties: {e}")
+
+    def _ensure_layer_exists(self, layer: str) -> bool:
+        """Create ``layer`` when the drawing does not have it yet.
+
+        Returns:
+            True if the layer is (now) available, False if it could not be
+            created - the caller still tries to assign it.
+        """
+        if not layer or layer == "0":
+            return True
+
+        cache = getattr(self, "_known_layers", None)
+        if cache is None:
+            cache = set()
+            try:
+                self._known_layers = cache
+            except Exception:
+                pass
+
+        key = layer.lower()
+        if key in cache:
+            return True
+
+        try:
+            document = self.document
+            if document is None:
+                return False
+            try:
+                document.Layers.Item(layer)
+            except Exception:
+                document.Layers.Add(layer)
+                logger.info(f"Auto-created missing layer '{layer}'")
+            cache.add(key)
+            return True
+        except Exception as e:
+            logger.warning(f"Could not ensure layer '{layer}': {e}")
+            return False
 
     def _track_entity(self, entity: Any, entity_type: str) -> None:
         """Track entity in drawing state."""

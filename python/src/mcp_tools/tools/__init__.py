@@ -9,6 +9,7 @@ Contains all tool definitions organized by category:
 - entities: Unified entity operations (modify_entities, select_entities, copy_paste_entities)
 - blocks: Unified block management (manage_blocks, list_blocks, query_block)
 - export: Unified export (export_data)
+- tracing: Raster-to-polyline tracing (trace_image)
 
 Legacy tools are preserved in ./legacy/ for reference.
 """
@@ -21,6 +22,7 @@ from .entities import register_entity_tools
 from .export import register_export_tools
 from .blocks import register_block_tools
 from .geometry import register_geometry_tools
+from .tracing import register_tracing_tools
 
 __all__ = [
     "register_session_tools",
@@ -31,4 +33,5 @@ __all__ = [
     "register_export_tools",
     "register_block_tools",
     "register_geometry_tools",
+    "register_tracing_tools",
 ]

@@ -7,8 +7,9 @@ for ~85% token reduction.
 SHORTHAND FORMAT (one per line):
     save|path_or_filename|format  → save|/path/to/file.dwg
     save|filename                 → save|backup.dwg
-    new                           → new
+    new|reuse_blank               → new              (reuses an empty scratch drawing)
     close|save_changes            → close|true
+    tidy                          → tidy             (closes empty scratch drawings)
     list                          → list
     switch|drawing_name           → switch|floor_plan.dwg
 """
@@ -43,7 +44,25 @@ def _save(spec: Dict[str, Any]) -> Dict[str, Any]:
     filename = spec.get("filename", "")
     fmt = spec.get("format", "dwg")
 
-    success = get_current_adapter().save_drawing(
+    adapter = get_current_adapter()
+
+    # Saving over a drawing that is already open in this session makes SaveAs
+    # fail with a bare "Failed to save drawing"; report the real reason instead.
+    if filepath:
+        try:
+            conflict = adapter.find_open_document_by_path(filepath)
+        except Exception:
+            conflict = ""
+        if conflict:
+            return {
+                "success": False,
+                "detail": (
+                    f"'{filepath}' is already open as '{conflict}'. Close it "
+                    "(close|false) or save under a different path."
+                ),
+            }
+
+    success = adapter.save_drawing(
         filepath=filepath, filename=filename, format=fmt
     )
 
@@ -60,6 +79,19 @@ def _save(spec: Dict[str, Any]) -> Dict[str, Any]:
         result = {"success": True, "detail": "Drawing saved"}
         if saved_path:
             result["path"] = saved_path
+
+        # A finished deliverable should not leave scratch "DrawingN" tabs behind.
+        try:
+            closed = adapter.close_blank_documents(keep_current=True)
+        except Exception as error:  # pragma: no cover - best effort cleanup
+            logger.debug(f"Blank drawing cleanup skipped: {error}")
+            closed = []
+        if closed:
+            result["closed_blank"] = closed
+            result["detail"] = (
+                f"Drawing saved; closed {len(closed)} empty scratch drawing(s): "
+                + ", ".join(closed)
+            )
         return result
 
     return {"success": False, "detail": "Failed to save drawing"}
@@ -69,15 +101,23 @@ def _new(spec: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new drawing.
 
     Args:
-        spec: Operation spec (no required keys).
+        spec: Operation spec with keys: reuse_blank (bool, optional, default True).
 
     Returns:
         Dict with keys: success (bool), detail (str).
     """
-    success = get_current_adapter().new_drawing()
+    reuse_blank = spec.get("reuse_blank", True)
+    adapter = get_current_adapter()
+    success = adapter.new_drawing(reuse_blank=reuse_blank)
+    try:
+        active = adapter.document.Name if adapter.document is not None else ""
+    except Exception:
+        active = ""
     return {
         "success": success,
-        "detail": "New drawing created" if success else "Failed to create drawing",
+        "detail": (
+            f"Drawing ready: {active}" if success else "Failed to create drawing"
+        ),
     }
 
 
@@ -114,9 +154,11 @@ def _list(spec: Dict[str, Any]) -> Dict[str, Any]:
         spec: Operation spec (no required keys).
 
     Returns:
-        Dict with keys: success (bool), count (int), drawings (list), detail (str, if none open).
+        Dict with keys: success (bool), count (int), drawings (list of names),
+        documents (list of inventories), detail (str, if none open).
     """
-    drawings = get_current_adapter().get_open_drawings()
+    adapter = get_current_adapter()
+    drawings = adapter.get_open_drawings()
     if not drawings:
         return {
             "success": True,
@@ -124,7 +166,49 @@ def _list(spec: Dict[str, Any]) -> Dict[str, Any]:
             "drawings": [],
             "detail": "No drawings open",
         }
-    return {"success": True, "count": len(drawings), "drawings": drawings}
+
+    result: Dict[str, Any] = {
+        "success": True,
+        "count": len(drawings),
+        "drawings": drawings,
+    }
+    try:
+        result["documents"] = adapter.list_documents()
+    except Exception as error:  # pragma: no cover - inventory is best effort
+        logger.debug(f"Detailed inventory unavailable: {error}")
+    blanks = [d["name"] for d in result.get("documents", []) if d.get("blank")]
+    if blanks:
+        result["blank"] = blanks
+        result["hint"] = (
+            "Empty scratch drawings are open ("
+            + ", ".join(blanks)
+            + "); run 'tidy' or close them before delivering."
+        )
+    return result
+
+
+def _tidy(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """Close every unsaved, empty drawing window.
+
+    Args:
+        spec: Operation spec (no required keys). ``keep_current`` is accepted
+            for compatibility; a blank drawing holds no entities and was never
+            saved, so it is closed even when it is the active one.
+
+    Returns:
+        Dict with keys: success (bool), detail (str), closed (list).
+    """
+    keep_current = spec.get("keep_current", True)
+    adapter = get_current_adapter()
+    closed = adapter.close_blank_documents(keep_current=keep_current)
+    remaining = adapter.get_open_drawings()
+    if closed:
+        detail = "Closed blank drawing(s): " + ", ".join(closed)
+    else:
+        detail = "No blank drawings to close"
+    if remaining:
+        detail += ". Open now: " + ", ".join(remaining)
+    return {"success": True, "detail": detail, "closed": closed}
 
 
 def _switch(spec: Dict[str, Any]) -> Dict[str, Any]:
@@ -157,6 +241,7 @@ FILE_DISPATCH: Dict[str, Tuple[Callable, List[str]]] = {
     "new": (_new, []),
     "close": (_close, []),
     "list": (_list, []),
+    "tidy": (_tidy, []),
     "switch": (_switch, ["drawing_name"]),
 }
 
@@ -198,17 +283,28 @@ def register_file_tools(mcp):
 
                 save|path_or_filename|format  → save|/path/to/file.dwg
                 save|filename                 → save|backup.dwg
-                new                           → new
+                new|reuse_blank               → new
                 close|save_changes            → close|true
+                tidy|keep_current             → tidy
                 list                          → list
                 switch|drawing_name           → switch|floor_plan.dwg
 
                 "format" = "dwg" (default), "dxf", "pdf"
                 "save_changes" = true/false (default: false)
+                "reuse_blank" = true/false (default: true) — new reuses an
+                    unsaved empty drawing instead of opening another window
+                "keep_current" = true/false (default: true) — tidy spares the
+                    active drawing
+
+                Notes:
+                    - save closes leftover empty scratch drawings automatically
+                    - tidy closes every unsaved empty drawing window
+                    - list reports per-document path/entity count/blank flag
 
                 Example:
                     save|backup.dwg
                     new
+                    tidy
                     switch|floor_plan.dwg
 
                 JSON format also supported for backwards compatibility.

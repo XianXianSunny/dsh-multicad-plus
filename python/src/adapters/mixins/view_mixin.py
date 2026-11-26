@@ -10,8 +10,8 @@ import os
 import time
 import win32gui
 import win32con
-from typing import TYPE_CHECKING, Dict
-from PIL import ImageGrab
+from typing import TYPE_CHECKING, Any, Dict
+from PIL import Image, ImageGrab
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ class ViewMixin:
 
         def _get_application(self, operation: str = "operation") -> Any: ...
         def _get_document(self, operation: str = "operation") -> Any: ...
+        def _to_variant_array(self, point: Any) -> Any: ...
         def _simulate_autocad_click(self) -> bool: ...
         def _validate_connection(self) -> None: ...
         def resolve_export_path(
@@ -168,6 +169,17 @@ class ViewMixin:
 
             # Capture
             image = ImageGrab.grab(bbox=(x, y, x + w, y + h), all_screens=True)
+
+            # A full-screen grab of a 4K display is ~35 MB of base64 and was
+            # enough to kill the stdio server mid-call. Downscale before
+            # encoding; the picture is only used as a visual sanity check.
+            max_side = 1600
+            if max(image.size) > max_side:
+                ratio = max_side / float(max(image.size))
+                image = image.resize(
+                    (max(1, int(image.width * ratio)), max(1, int(image.height * ratio))),
+                    Image.LANCZOS,
+                )
 
             # Prepare filename and resolve path using centralized utility
             filename = f"cad_screenshot_{os.getpid()}.png"
@@ -321,11 +333,79 @@ class ViewMixin:
         """
         try:
             application = self._get_application("zoom_extents")
+            document = self._get_document("zoom_extents")
+
+            # A freshly created document answers ZoomExtents before its view is
+            # recalculated, which leaves the model enormously zoomed in (a 64 mm
+            # logo filled the window in the 2026-11-27 session). Activate,
+            # settle, then call it again.
+            try:
+                document.Activate()
+            except Exception as error:
+                logger.debug(f"Activate before zoom skipped: {error}")
+
+            # Prefer an explicit window around the drawing extents: several CAD
+            # builds clamp ZoomExtents to a minimum view size, which crops a
+            # small drawing (a 64 mm logo) instead of fitting it.
+            if self._zoom_to_drawing_extents(application, document):
+                return True
+
             application.ZoomExtents()
+            time.sleep(0.2)
+            application.ZoomExtents()
+
+            try:
+                application.Refresh()
+            except Exception as error:
+                logger.debug(f"Refresh after zoom skipped: {error}")
+
             logger.debug("Zoomed to extents")
             return True
         except Exception as e:
             logger.error(f"Failed to zoom extents: {e}")
+            return False
+
+    def _zoom_to_drawing_extents(self, application: Any, document: Any) -> bool:
+        """Zoom a window that fits ``EXTMIN``/``EXTMAX`` with a small margin.
+
+        Returns:
+            True when the window zoom was applied, False to let the caller fall
+            back to ``ZoomExtents``.
+        """
+        try:
+            ext_min = document.GetVariable("EXTMIN")
+            ext_max = document.GetVariable("EXTMAX")
+            x1, y1 = float(ext_min[0]), float(ext_min[1])
+            x2, y2 = float(ext_max[0]), float(ext_max[1])
+        except Exception as error:
+            logger.debug(f"Could not read drawing extents: {error}")
+            return False
+
+        width = abs(x2 - x1)
+        height = abs(y2 - y1)
+        if width < 1e-6 and height < 1e-6:
+            logger.debug("Drawing extents are degenerate, falling back to ZoomExtents")
+            return False
+        # EXTMIN/EXTMAX are zeroed on a fresh drawing; ignore that case too.
+        if abs(x1) < 1e-9 and abs(y1) < 1e-9 and width < 1e-6:
+            return False
+
+        margin = max(width, height) * 0.08 + 0.5
+        try:
+            application.ZoomWindow(
+                self._to_variant_array((x1 - margin, y1 - margin, 0.0)),
+                self._to_variant_array((x2 + margin, y2 + margin, 0.0)),
+            )
+            try:
+                application.Refresh()
+            except Exception:
+                pass
+            logger.debug(
+                f"Zoomed to window ({x1:.3f},{y1:.3f})-({x2:.3f},{y2:.3f})"
+            )
+            return True
+        except Exception as error:
+            logger.debug(f"ZoomWindow failed, falling back to ZoomExtents: {error}")
             return False
 
     def refresh_view(self) -> bool:

@@ -752,9 +752,13 @@ class CADInterface(ABC):
         pass
 
     @abstractmethod
-    def new_drawing(self) -> bool:
+    def new_drawing(self, reuse_blank: bool = True) -> bool:
         """
-        Create a new blank drawing.
+        Create a new blank drawing, reusing an unsaved empty one when possible.
+
+        Args:
+            reuse_blank: Activate an existing never-saved, empty drawing instead
+                of adding another window (default: True).
 
         Returns:
             bool: True if successful
